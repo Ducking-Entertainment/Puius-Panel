@@ -41,60 +41,53 @@ local function HandleBoolSetting(Name)
 end
 
 --[[
+-- CreatePlayerButton(Player) accepts a Player instance as argument and based on it and based on the provided settings it creates
+-- a new button or updates an existing button within PlayerList ScrollingFrame.
+--]]
+local function CreatePlayerButton(Player)
+  local Template = PlayerList.Container:FindFirstChild(Player.Name)
+
+  if not Template then
+    -- If there isn't any existing button, simply create a new one with the template found within PlayerList and update its elements.
+    Template = PlayerList.Container.Template:Clone()
+    Template.ImageLabel.Image = Players:GetUserThumbnailAsync(Player.UserId,
+      Enum.ThumbnailType.HeadShot,
+      Enum.ThumbnailSize.Size60x60)
+    Template.PlayerName.Text = Player.Name
+
+    Template.Interact.MouseButton1Up:Connect(function()
+      -- Holding down CTRL allows you to select multiple players at once. This implements the functionality.
+      if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if not table.find(PlayersSelected, Player) then
+          table.insert(PlayersSelected, Player)
+        else
+          local Index = table.find(PlayersSelected, Player)
+          if Index then table.remove(PlayersSelected, Index) end
+        end
+      else
+        PlayersSelected = {[1] = Player}
+      end
+    end)
+  end
+
+  Template.Parent = PlayerList.Container
+  Template.Name = Player.Name
+
+  Template.Visible = true
+end
+
+--[[
 -- RefreshPlayerList() can be called freely whenever the `PlayerList` ScrollingFrame has to be updated. Normally it's called
 -- whenever a new player joins or a command is fired, after PlayersSelected table is cleared.
 --]]
 local function RefreshPlayerList()
-  local Order = 0
-  --[[
-  -- CreatePlayerButton(Player) accepts a Player instance as argument and based on it and based on the provided settings it creates
-  -- a new button or updates an existing button within PlayerList ScrollingFrame. Order variable has to be manually updated.
-  --]]
-  local function CreatePlayerButton(Player)
-    local Template = PlayerList.Container:FindFirstChild(Player.Name)
-
-    if not Template then
-      -- If there isn't any existing button, simply create a new one with the template found within PlayerList and update its elements.
-      Template = PlayerList.Container.Template:Clone()
-      Template.ImageLabel.Image = game:GetService("Players"):GetUserThumbnailAsync(Player.UserId,
-      Enum.ThumbnailType.HeadShot,
-      Enum.ThumbnailSize.Size60x60)
-      Template.PlayerName.Text = Player.Name
-
-      Player.Destroying:Connect(function()
-        Template:Destroy()
-      end)
-
-      Template.Interact.MouseButton1Up:Connect(function()
-        -- Holding down CTRL allows you to select multiple players at once. This implements the functionality.
-        if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-          if not table.find(PlayersSelected, Player) then
-            table.insert(PlayersSelected, Player)
-          else
-            local Index = table.find(PlayersSelected, Player)
-            if Index then table.remove(PlayersSelected, Index) end
-          end
-        else
-          PlayersSelected = {[1] = Player}
-        end
-      end)
-    end
-
-    Template.Parent = PlayerList.Container
-    Template.Name = Player.Name
-    Template.LayoutOrder = Order -- Order is modified outside the function.
-
-    Template.Visible = true
-  end
-  
   for _, v in pairs(PlayerList.Container:GetChildren()) do
-    if not game.Players:FindFirstChild(v.Name) and v.Name ~= "Template" and v:IsA("Frame") then
+    if not Players:FindFirstChild(v.Name) and v.Name ~= "Template" and v:IsA("Frame") then
       v:Destroy();
     end;
   end;
 
   for _, Player in pairs(Players:GetPlayers()) do
-    Order = Order + 1
     CreatePlayerButton(Player)
   end
 
@@ -116,6 +109,7 @@ local function HandleVisibilityAnimation(Frame, In)
   end
 
   Tween.Completed:Wait()
+
   if In then 
     Frame.Visible = false 
   end
@@ -127,6 +121,10 @@ Panel.PanelButton.MouseButton1Up:Connect(function()
 end)
 
 Players.PlayerAdded:Connect(function()
+  RefreshPlayerList()
+end)
+
+Players.PlayerRemoving:Connect(function()
   RefreshPlayerList()
 end)
 
