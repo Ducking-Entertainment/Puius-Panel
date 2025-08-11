@@ -1,108 +1,111 @@
-local Event
+local Event       = game:GetService("ReplicatedStorage"):FindFirstChild("PanelRemote");
 
-local Settings    = require(script.Settings)
-local Permissions = {}
-local PluginsName = {}
-local Plugins     = {}
-local Logs        = {}
+local Settings        = require(script.Settings);
+local Permissions     = {Administrators = Settings.Administrators, Moderators = Settings.Moderators};
+local PluginMetadata  = {};
+local Plugins         = {};
+local Logs            = {};
+local Internal        = {};
 
 local function ContainsOnlyPlayers(PlayerTable)
   for _, v in pairs(PlayerTable) do
-    if typeof(v) ~= "Instance" then return false end
-    if not v:IsA("Player") then return false end
-  end
+    if ((typeof(v) ~= "Instance") or not v:IsA("Player")) then return false; end;
+  end;
 
-  return true
-end
+  return true;
+end;
 
-local function GivePanel(Player, Permissions)
-  if Player.PlayerGui:FindFirstChild("PanelUI") then return end
-  if not Permissions.Administrators[Player.UserId] and not Permissions.Moderators[Player.UserId] then return end
+local function GivePanel(Player)
+  if (Player.PlayerGui:FindFirstChild("PanelUI")) then return; end;
+  if (not Permissions.Administrators[Player.UserId] and not Permissions.Moderators[Player.UserId]) then return; end;
 
-  local Panel = script.PanelUI:Clone()
-  local ClientCommands = script.Plugins.Client:Clone()
-  ClientCommands.Parent = Panel.Framework
+  local Panel = script.PanelUI:Clone();
+  local ClientCommands = script.Plugins.Client:Clone();
+  ClientCommands.Parent = Panel.Framework;
 
   for _, v in pairs(script.Framework:GetChildren()) do
-    v:Clone().Parent = Panel.Framework
-  end
+    v:Clone().Parent = Panel.Framework;
+  end;
 
   for _, v in pairs(Panel.Framework:GetChildren()) do
-    if v:IsA("LocalScript") then v.Enabled = true end
-  end
+    if v:IsA("LocalScript") then v.Enabled = true; end;
+  end;
 
-  Panel.Parent = Player.PlayerGui
-end
+  Panel.Parent = Player.PlayerGui;
+end;
 
-local function Main()
-  if not game:GetService("ReplicatedStorage"):FindFirstChild("PanelRemote") then
-    Event = Instance.new("RemoteFunction")
-    Event.Parent = game:GetService("ReplicatedStorage")
-    Event.Name = "PanelRemote"
-  end
+if not Event then
+  Event = Instance.new("RemoteFunction");
+  Event.Parent = game:GetService("ReplicatedStorage");
+  Event.Name = "PanelRemote";
+end;
 
-  Permissions.Administrators = Settings.Administrators
-  Permissions.Moderators = Settings.Moderators
+Internal.RequestPlugins = function()
+  return PluginMetadata;
+end;
 
-  for _, Plugin in pairs(script.Plugins.Server:GetChildren()) do
-    local Commands = require(Plugin)
-    PluginsName[Plugin.Name] = {}
-    PluginsName[Plugin.Name]["Name"] = Commands.Name
-    PluginsName[Plugin.Name]["RequireExArguments"] = Commands.RequireExArguments
-    PluginsName[Plugin.Name]["Descriptions"] = Commands.Descriptions
+Internal.RequestLogs = function()
+  return Logs;
+end;
 
-    for Command, Attached in pairs(Commands) do
-      if Command == "Name" or Command == "RequireExArguments" or Command == "Descriptions" then continue end
+Internal.Default = function(Player, Data)
+  if (not Data) then return "No data passed."; end;
+  local Command = Data.Command;
+  local Targets = Data.Targets;
+  local Arguments = Data.Arguments;
 
-      Plugins[string.lower(Command)] = Attached
-      PluginsName[Plugin.Name][Command] = Command
-    end
-  end
+  local Status, AdditionalResponse = pcall(function()
+    if (not Arguments) then Arguments = {}; end;
+    if (type(Command) ~= "string" or type(Targets) ~= "table") then return "Unknown data type(s) passed."; end;
+    if (not ContainsOnlyPlayers(Targets)) then return "Table doesn't contain only players."; end;
 
-  script.PanelUI:SetAttribute("AlwaysOnTop", Settings.AlwaysOnTop)
+    return Plugins[Command](Player, Targets, Arguments) or `Executed {Command} command!`;
+  end);
 
-  Event.OnServerInvoke = function(Player, Data)
-    if not Permissions.Administrators[Player.UserId] and not Permissions.Moderators[Player.UserId] then return "User is not authorized to invoke the remote function." end
+  if type(Status) == "string" then
+    local NewLog = {
+      ExecutedBy = Player.Name,
+      Arguments = Arguments,
+      Command = Command
+    };
 
-    if Data.Type == "RequestPlugins" then
-      return PluginsName
-    elseif Data.Command == "Logs" then
-      return Logs
-    else
-      local Status, AdditionalResponse = pcall(function()
-        if not Data then return "No data passed." end
+    table.insert(Logs, NewLog);
+  end;
 
-        local Command = Data.Command
-        local Targets = Data.Targets
-        local Arguments = Data.Arguments
-        
-        if not Arguments then Arguments = {} end
-        if type(Command) ~= "string" or type(Targets) ~= "table" then return "Unknown data type(s) passed." end
-        if not ContainsOnlyPlayers(Targets) then return "Table doesn't contain only players." end
+  return AdditionalResponse or Status;
+end;
 
-        return Plugins[Command](Player, Targets, Arguments) or `Executed {Command} command!`
-      end)
+script.PanelUI:SetAttribute("AlwaysOnTop", Settings.AlwaysOnTop);
 
-      if type(Status) == "string" then
-        local NewLog = {}
-        NewLog.ExecutedBy = Player.Name
-        NewLog.Arguments = Arguments
-        NewLog.Command = Command
+Event.OnServerInvoke = function(Player, Data)
+  if not (Permissions.Administrators[Player.UserId] and not Permissions.Moderators[Player.UserId]) then return "User is not authorized to invoke the remote function." end
 
-        table.insert(Logs, NewLog)
-      end
+  if (Internal[Data.Type]) then
+    return Internal[Data.Type]();
+  else
+    return Internal.Default(Player, Data);
+  end;
+end;
 
-      return AdditionalResponse or Status
-    end
-  end
+for _, Plugin in pairs(script.Plugins.Server:GetChildren()) do
+  local Commands = require(Plugin);
+  PluginMetadata[Commands.Name] = {};
+  PluginMetadata[Commands.Name]["Name"] = Commands.Name;
+  PluginMetadata[Commands.Name]["RequireExArguments"] = Commands.RequireExArguments;
+  PluginMetadata[Commands.Name]["Descriptions"] = Commands.Descriptions;
 
-  game:GetService("Players").PlayerAdded:Connect(function(Player)
-    GivePanel(Player, Permissions)
-  end)
+  for Name, Func in pairs(Commands) do
+    if (typeof(Func) ~= "function") then continue end
 
-  for _, Player in pairs(game:GetService("Players"):GetPlayers()) do
-    GivePanel(Player, Permissions)
-  end
-end
+    Plugins[string.lower(Name)] = Func;
+    PluginMetadata[Commands.Name][Name] = Name;
+  end;
+end;
 
-Main()
+game:GetService("Players").PlayerAdded:Connect(function(Player)
+  GivePanel(Player);
+end);
+
+for _, Player in pairs(game:GetService("Players"):GetPlayers()) do
+  GivePanel(Player);
+end;
