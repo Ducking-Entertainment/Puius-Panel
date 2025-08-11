@@ -5,19 +5,32 @@
 local module = {}
 local Server = game:GetService("ReplicatedStorage"):WaitForChild("PanelRemote")
 local LocalCommands = {}
-local PluginsName = {}
+local PluginsMetadata = {}
+
+local function ContainsOnlyPlayers(PlayerTable)
+  for _, v in pairs(PlayerTable) do
+    if ((typeof(v) ~= "Instance") or not v:IsA("Player")) then return false; end;
+  end;
+
+  return true;
+end;
 
 --[[
 -- RunCommand(Command, Arguments) accepts Command string and Arguments table, and it is the function which handles preparing
 -- and invoking the RemoteFunction to execute the command (or in some cases, run the command only locally). Cleanup is done manually.
 --]]
 module.RunCommand = function(Command, PlayersSelected, Arguments)
-  Command = string.lower(Command)
-  if not Arguments and LocalCommands[Command] then Arguments = LocalCommands[Command](PlayersSelected) end
-  if Arguments == false then return end -- Hacky way to stop the panel from continuing to run a command. Useful for local commands.
+  if not ContainsOnlyPlayers(PlayersSelected) then return; end;
 
-  print(Server:InvokeServer({Command = Command, Targets = PlayersSelected, Arguments = Arguments}))
-end
+  Command = string.lower(Command)
+
+  if LocalCommands[Command] then 
+    LocalCommands[Command](PlayersSelected)
+    return;
+  end;
+
+  print(Server:InvokeServer({Command = Command, Targets = PlayersSelected, Arguments = Arguments}));
+end;
 
 --[[
 -- SetDisplayOrder() is the function that handles AlwaysOnTop setting. Basically, when called, finds the highest DisplayOrder 
@@ -86,18 +99,27 @@ module.GetArgument = function(Folder, AllowedType)
 end
 
 --[[
--- GetPluginsName() is a shared function whose scope is to centralize requests for PluginsName.
+-- GetPluginsMetadata() is a shared function whose scope is to centralize requests for PluginsName.
 --]]
-module.GetPluginsName = function()
-  LocalCommands = require(script.Parent:WaitForChild("Client").VanillaCommands)
-  PluginsName = Server:InvokeServer({Type = "RequestPlugins"})
-  PluginsName["LocalCommands"] = {}
+module.GetPluginsMetadata = function()
+  local ClientCommands = script.Parent:WaitForChild("Client");
+  PluginsMetadata = Server:InvokeServer({Type = "RequestPlugins"});
+  
+  for _, Module in pairs(ClientCommands:GetChildren()) do
+    local RequiredModule = require(Module);
+    
+    if not PluginsMetadata[RequiredModule.Name] then
+      PluginsMetadata[RequiredModule.Name] = {};
+      PluginsMetadata[RequiredModule.Name]["Name"] = RequiredModule.Name;
+    end;
 
-  for P_Name, _ in pairs(LocalCommands) do
-    PluginsName["LocalCommands"][P_Name] = P_Name
-  end
+    for Name, Command in pairs(RequiredModule) do
+      LocalCommands[string.lower(Name)] = Command;
+      PluginsMetadata[RequiredModule.Name][Name] = Name;
+    end;
+  end;
 
-  return PluginsName
-end
+  return PluginsMetadata;
+end;
 
-return module
+return module;

@@ -9,7 +9,7 @@ local UIS = game:GetService("UserInputService")
 local Shared = require(script.Parent.Shared)
 local Panel = script.Parent.Parent
 local Terminal = Panel.Terminal.Interface
-local PluginsName = Shared.GetPluginsName()
+local PluginsMetadata = Shared.GetPluginsMetadata()
 
 local DraggableObject = require(script.Parent.DraggableUI)
 local Drag = DraggableObject.new(Terminal.Parent)
@@ -66,7 +66,7 @@ UIS.InputBegan:Connect(function(Input)
     if #Data == 1 then
       -- Completion for command name
       local Command = {}
-      for _, PluginTable in pairs(PluginsName) do
+      for _, PluginTable in pairs(PluginsMetadata) do
         for _, Name in pairs(CompleteName(PluginTable, Data[1])) do
           table.insert(Command, Name)
         end
@@ -117,7 +117,7 @@ Terminal.CommandLine.TextBox.FocusLost:Connect(function()
   local Command
   local CommandRequirements
   
-  for _, PluginTable in pairs(PluginsName) do
+  for _, PluginTable in pairs(PluginsMetadata) do
     if not PluginTable.RequireExArguments then continue end
     Command = GetCommandByName(PluginTable, Data[1])
     if not Command then continue end
