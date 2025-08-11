@@ -1,38 +1,52 @@
-local module = {}
-local Panel = game.Players.LocalPlayer.PlayerGui:WaitForChild("PanelUI")
-local Shared = require(Panel.Framework.Shared) -- Shared functions
-local Watching = false
+local module = {};
+local Assets = script.Parent.Parent.Parent.Assets;
+local Watching, SeeAllActive = false, false;
+local SeeAllConnections = {};
 
-module.team = function()
-  return Shared.GetArgument(game:GetService("Teams"):GetChildren(), "Team")
-end
+module.Name = "Vanilla Commands";
 
-module.watch = function(Targets)
-  if Watching then
-    workspace.CurrentCamera.CameraSubject = Targets[1].Character.Humanoid
+local function UpdateBillboard(Billboard)
+  local Humanoid = Billboard.Parent.Humanoid;
+  Billboard.TextLabel.Text = string.format("%s: %.02f / %.02f", Billboard.Parent.Name, Humanoid.Health, Humanoid.MaxHealth);
+end;
+
+module["See All"] = function()
+  local Players = game.Players:GetPlayers();
+  local Billboard = Assets.Puius_Billboard;
+
+  if (SeeAllActive) then
+    for _, v in pairs(SeeAllConnections) do
+      v:Disconnect();
+    end;
+
+    for _, v in pairs(Players) do
+      if not v.Character or not v.Character:FindFirstChild("Puius_Billboard") then continue; end;
+      v.Character.Puius_Billboard:Destroy();
+    end;
   else
-    workspace.CurrentCamera.CameraSubject = game.Players.LocalPlayer.Character.Humanoid
-  end
+    for _, v in pairs(Players) do
+      table.insert(SeeAllConnections, v.CharacterAdded:Connect(function(Character)
+        local Clone = Billboard:Clone();
+        Clone.Enabled = true;
+        Clone.Parent = Character;
+        UpdateBillboard(Clone);
+      end));
 
-  Watching = not Watching
-  return false
-end
+      local Clone = Billboard:Clone()
+      Clone.Enabled = true;
+      Clone.Parent = v.Character;
+      UpdateBillboard(Clone);
+    end;
+  end;
 
-module.give = function()
-  return Shared.GetArgument(game:GetService("ReplicatedStorage"):GetDescendants(), "Tool")
-end
+  SeeAllActive = not SeeAllActive;
+end;
 
-module.inventory = function(Targets)
-  -- TODO
-  return false
-end
+module.Watch = function(Targets)
+  if #Targets == 0 then return; end;
 
-module.removetool = function(Targets)
-  return Shared.GetArgument(Targets[1].Backpack:GetChildren())
-end
+  workspace.CurrentCamera.CameraSubject = not Watching and Targets[1].Character.Humanoid or game.Players.LocalPlayer.Character.Humanoid;
+  Watching = not Watching;
+end;
 
-setmetatable(module, {__index = function()
-  return nil
-end})
-
-return module
+return module;
