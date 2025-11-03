@@ -11,13 +11,13 @@ local function GetTools(): {Tool}
 
   for _, v in Replicated:GetDescendants() do
     if (v:IsA("Tool")) then
-      table.insert(Tools, v);
+      table.insert(Tools, v.Name);
     end;
   end;
 
   for _, v in Storage:GetDescendants() do
     if (v:IsA("Tool")) then
-      table.insert(Tools, v);
+      table.insert(Tools, v.Name);
     end;
   end;
 
