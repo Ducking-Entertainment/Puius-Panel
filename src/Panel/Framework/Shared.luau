@@ -2,10 +2,12 @@
 -- Shared module must not have global variables which are specific to the graphical / non graphical environment.
 --]]
 
-local module = {}
-local Server = game:GetService("ReplicatedStorage"):WaitForChild("PanelRemote")
-local LocalCommands = {}
-local PluginsMetadata = {}
+local module = {};
+local LocalCommands = {};
+local PluginsMetadata = {};
+
+local Remote = game:GetService("ReplicatedStorage"):WaitForChild("PanelRemote");
+module.Remote = Remote;
 
 local function ContainsOnlyPlayers(PlayerTable)
   for _, v in pairs(PlayerTable) do
@@ -29,7 +31,7 @@ module.RunCommand = function(Command, PlayersSelected, Arguments)
     return;
   end;
 
-  print(Server:InvokeServer({Command = Command, Targets = PlayersSelected, Arguments = Arguments}));
+  print(Remote:InvokeServer({Command = Command, Targets = PlayersSelected, Arguments = Arguments}));
 end;
 
 --[[
@@ -40,12 +42,17 @@ module.SetHighestDisplayOrder = function()
   local HighestDisplayOrder = 1
 
   for _, v in pairs(game.Players.LocalPlayer.PlayerGui:GetChildren()) do
-    if v == script.Parent.Parent then continue end
-    if v.DisplayOrder > HighestDisplayOrder then HighestDisplayOrder = v.DisplayOrder end
-  end
+    if (v == script.Parent.Parent) then
+      continue;
+    end;
 
-  script.Parent.Parent.DisplayOrder = HighestDisplayOrder + 1
-end
+    if (v.DisplayOrder > HighestDisplayOrder) then 
+      HighestDisplayOrder = v.DisplayOrder 
+    end;
+  end;
+
+  script.Parent.Parent.DisplayOrder = HighestDisplayOrder + 1;
+end;
 
 --[[
 -- Unimplemented.
@@ -103,7 +110,7 @@ end
 --]]
 module.GetPluginsMetadata = function()
   local ClientCommands = script.Parent:WaitForChild("Client");
-  PluginsMetadata = Server:InvokeServer({Type = "RequestPlugins"});
+  PluginsMetadata = Remote:InvokeServer({Type = "RequestPlugins"});
   
   for _, Module in pairs(ClientCommands:GetChildren()) do
     local RequiredModule = require(Module);
