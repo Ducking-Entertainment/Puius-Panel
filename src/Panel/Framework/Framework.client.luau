@@ -127,7 +127,7 @@ end;
   @param: Frame which is of type 'itemselector'.
   @return: Nothing.
 ]]
-local function SetupItemSelector(ItemsTable: {Instance} | Instance, FieldFrame: Frame & {TextLabel: TextLabel, TextButton: TextButton}): ()
+local function SetupItemSelector(ItemsTable: {Instance | string} | Instance, FieldFrame: Frame & {TextLabel: TextLabel, TextButton: TextButton}): ()
   if (typeof(ItemsTable) == "Instance") then
     ItemsTable = ItemsTable:GetChildren();
   end;
@@ -141,11 +141,11 @@ local function SetupItemSelector(ItemsTable: {Instance} | Instance, FieldFrame: 
   for _, v: Instance in ItemsTable do
     local Template: TextButton = ItemSelector.Scrollable.Container.Template:Clone();
     Template.Parent = ItemSelector.Scrollable.Container;
-    Template.Name = v.Name;
-    Template.TextLabel.Text = v.Name;
+    Template.Name = tostring(v);
+    Template.TextLabel.Text = tostring(v);
 
     Template.MouseButton1Up:Connect(function()
-      FieldFrame.TextButton.Text = v.Name;
+      FieldFrame.TextButton.Text = tostring(v);
       ItemSelector.Visible = false;
     end);
 
@@ -158,7 +158,7 @@ local function SetupItemSelector(ItemsTable: {Instance} | Instance, FieldFrame: 
     game:GetService("RunService").Heartbeat:Wait(); -- Give roblox time to calculate the new AbsoluteContentSize.
 
     local ListAbsSize: Vector2 = ItemSelector.Scrollable.Container.UIListLayout.AbsoluteContentSize;
-    ItemSelector.Scrollable.CanvasSize = UDim2.fromOffset(ListAbsSize.X, ListAbsSize.Y);
+    ItemSelector.Scrollable.CanvasSize = UDim2.fromOffset(ListAbsSize.X, ListAbsSize.Y + 5);
   end);
 end;
 
