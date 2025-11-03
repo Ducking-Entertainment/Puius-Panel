@@ -1,141 +1,174 @@
 --[[
 -- The objective of pushing the terminal's code into its own script is so it can run without being tied to the "graphical" part of the
 -- panel. This means that you can use the terminal without having the actual "panel part" and vice versa. Hope it made sense.
--- Shared module is _still_ required. It wouldn't make sense to maintain some functions which are found both within the graphical and 
+-- Shared module is _still_ required. It wouldn't make sense to maintain some functions which are found both within the graphical and
 -- not 'graphical' parts of the panel.
 --]]
 
-local UIS = game:GetService("UserInputService")
-local Shared = require(script.Parent.Shared)
-local Panel = script.Parent.Parent
-local Terminal = Panel.Terminal.Interface
-local PluginsMetadata = Shared.GetPluginsMetadata()
+local CommandHistory: {string} = {};
 
-local DraggableObject = require(script.Parent.DraggableUI)
-local Drag = DraggableObject.new(Terminal.Parent)
-Drag:Enable()
+local UIS = game:GetService("UserInputService");
+local Shared = require(script.Parent.Shared);
+local Panel = script.Parent.Parent;
+local Terminal = Panel.Terminal.Interface;
+local PluginsMetadata = Shared.GetPluginsMetadata();
 
-local Combo = {"LeftControl", "Q"} -- Enum.KeyCode[Name]
+local DraggableObject = require(script.Parent.DraggableUI);
+local Drag = DraggableObject.new(Terminal.Parent);
+Drag:Enable();
+
+local Combo = {"LeftControl", "Q"}; -- Enum.KeyCode[Name]
 
 --[[
 -- CompleteName(Location, Name) accepts Location table and Name string as arguments. The function compares strlen(Name) characters of
 -- every Location element with Name in an attempt to find the string which is asked for. Always returns a table.
 --]]
 local function CompleteName(Location, Name)
-  local ForReturn = {}
+  local ForReturn = {};
 
-  local len = string.len(Name)
-  Name = string.lower(Name)
+  local len = string.len(Name);
+  Name = string.lower(Name);
 
-  for Key, Value in pairs(Location) do
-    local ForComparison = Key
+  for Key, Value in Location do
+    local ForComparison = Key;
 
-    if type(ForComparison) == "number" then ForComparison = Value end
-    if typeof(ForComparison) == "Instance" then ForComparison = ForComparison.Name end
+    if (type(ForComparison) == "number") then
+      ForComparison = Value;
+    end;
 
-    local sub = string.lower(string.sub(ForComparison, 1, len))
+    if (typeof(ForComparison) == "Instance") then
+      ForComparison = ForComparison.Name;
+    end;
 
-    if sub == Name then
-      table.insert(ForReturn, ForComparison)
-    end
-  end
+    local sub = string.lower(string.sub(ForComparison, 1, len));
 
-  return ForReturn
-end
+    if (sub == Name) then
+      table.insert(ForReturn, ForComparison);
+    end;
+  end;
+
+  return ForReturn;
+end;
 
 --[[
 -- GetCommandByName(Name) accepts Name string as argument. The function searches Plugin table for key Name, not respecting uppercase
 -- letters and returns said command name. If no command is found, return nil.
 --]]
-local function GetCommandByName(Plugin, Name)
-  for P_Name, _ in pairs(Plugin) do
-    if string.lower(P_Name) == string.lower(Name) then return P_Name end
-  end
+local function GetCommandByName(Plugin: {[string]: any}, Name: string): string?
+  for P_Name: string, _ in Plugin do
+    if (string.lower(P_Name) == string.lower(Name)) then
+      return P_Name;
+    end;
+  end;
 
-  return nil
-end
+  return nil;
+end;
 
 UIS.InputBegan:Connect(function(Input)
-  if Input.KeyCode == Enum.KeyCode.Tab and Terminal.CommandLine.TextBox:IsFocused() then
+  if (Input.KeyCode == Enum.KeyCode.Tab and Terminal.CommandLine.TextBox:IsFocused()) then
     --[[
     -- Allow tab completion for commands / player names. This means that you can press TAB and the script will auto complete the
     -- command / player name for you. Arguments aren't supported due to obvious reasons.
     --]]
     local Data = Terminal.CommandLine.TextBox.Text:split(" ")
 
-    if #Data == 1 then
+    if (#Data == 1) then
       -- Completion for command name
-      local Command = {}
-      for _, PluginTable in pairs(PluginsMetadata) do
-        for _, Name in pairs(CompleteName(PluginTable, Data[1])) do
+      local Command = {};
+      for _, PluginTable in PluginsMetadata do
+        for _, Name in CompleteName(PluginTable, Data[1]) do
           table.insert(Command, Name)
         end
       end
 
-      if Command[1] == nil then Panel.Assets.Quack:Play() return end
+      if (Command[1] == nil) then
+        Panel.Assets.Quack:Play()
+        return;
+      end;
 
-      game:GetService("RunService").RenderStepped:Wait()
-      Terminal.CommandLine.TextBox.Text = Command[1]
-      Terminal.CommandLine.TextBox.CursorPosition = string.len(Command[1]) + 1
+      game:GetService("RunService").Heartbeat:Wait();
+      Terminal.CommandLine.TextBox.Text = Command[1];
+      Terminal.CommandLine.TextBox.CursorPosition = string.len(Command[1]) + 1;
       -- local Completion = CompleteName()
-    elseif #Data == 2 then
+    elseif (#Data == 2) then
       -- Completion for Player name
-      local PlayersFound = CompleteName(game.Players:GetPlayers(), string.sub(Data[2], 1, string.len(Data[2])))
-      if PlayersFound[1] == nil then Panel.Assets.Quack:Play() return end
+      local PlayersFound = CompleteName(game.Players:GetPlayers(), string.sub(Data[2], 1, string.len(Data[2])));
+      if (PlayersFound[1] == nil) then
+        Panel.Assets.Quack:Play();
+        return;
+      end;
 
-      game:GetService("RunService").RenderStepped:Wait()
-      Terminal.CommandLine.TextBox.Text = Data[1].." "..PlayersFound[1]
-      Terminal.CommandLine.TextBox.CursorPosition = string.len(Terminal.CommandLine.TextBox.Text) + 1
-    end
-
-  elseif Input.KeyCode == Enum.KeyCode.Up then
-    -- TODO: Implement command history 
-  elseif Input.KeyCode == Enum.KeyCode.Down then
+      game:GetService("RunService").RenderStepped:Wait();
+      Terminal.CommandLine.TextBox.Text = Data[1].." "..PlayersFound[1];
+      Terminal.CommandLine.TextBox.CursorPosition = string.len(Terminal.CommandLine.TextBox.Text) + 1;
+    end;
+  elseif (Input.KeyCode == Enum.KeyCode.Up) then
     -- TODO: Implement command history
-  elseif UIS:IsKeyDown(Enum.KeyCode[Combo[1]]) and UIS:IsKeyDown(Enum.KeyCode[Combo[2]]) then
-    Terminal.Parent.Visible = not Terminal.Parent.Visible
-  end
-end)
+  elseif (Input.KeyCode == Enum.KeyCode.Down) then
+    -- TODO: Implement command history
+  elseif (UIS:IsKeyDown(Enum.KeyCode[Combo[1]]) and UIS:IsKeyDown(Enum.KeyCode[Combo[2]])) then
+    Terminal.Parent.Visible = not Terminal.Parent.Visible;
+  end;
+end);
 
 Terminal.CommandLine.TextBox.FocusLost:Connect(function()
-  local Text = Terminal.CommandLine.TextBox.Text
-  if #string.gsub(Text, "[%s]", "") == 0 then return end -- Empty string 
+  local Text = Terminal.CommandLine.TextBox.Text;
 
-  local Data = Text:split(" ")
-  local Label = Terminal.Template:Clone()
-  Label.Name = "OldCommand"
-  Label.TextBox.Text = Text
-  Label.TextLabel.Text = Terminal.CommandLine.TextLabel.Text
-  Label.Parent = Terminal
-  Label.Visible = true
+  if (#string.gsub(Text, "[%s]", "") == 0) then
+    return;
+  end;
 
-  Terminal.CommandLine.TextBox.Text = ""
-  
-  if not Data[2] then return end
+  local Data = Text:split(" ");
+  local Label = Terminal.Template:Clone();
 
-  local Arguments = {}
-  local Command
-  local CommandRequirements
-  
-  for _, PluginTable in pairs(PluginsMetadata) do
-    if not PluginTable.RequireExArguments then continue end
-    Command = GetCommandByName(PluginTable, Data[1])
-    if not Command then continue end
+  Label.Name = "OldCommand";
+  Label.TextBox.Text = Text;
+  Label.TextLabel.Text = Terminal.CommandLine.TextLabel.Text;
+  Label.Parent = Terminal;
+  Label.Visible = true;
 
-    local RequireExArguments = PluginTable.RequireExArguments
-    CommandRequirements = RequireExArguments[Command]
-    if CommandRequirements then break end
-  end
+  Terminal.CommandLine.TextBox.Text = "";
 
-  if not CommandRequirements then return end
-  
+  if (not Data[2]) then
+    return;
+  end;
+
+  local Arguments = {};
+  local Command;
+  local CommandRequirements;
+
+  for _, PluginTable in PluginsMetadata do
+    if (not PluginTable.RequireExArguments) then
+      continue;
+    end;
+
+    Command = GetCommandByName(PluginTable, Data[1]);
+
+    if (not Command) then
+      continue;
+    end;
+
+    local RequireExArguments = PluginTable.RequireExArguments;
+    CommandRequirements = RequireExArguments[Command];
+
+    if (CommandRequirements) then
+      break;
+    end;
+  end;
+
+  if (not CommandRequirements) then
+    return;
+  end;
+
   for i = 3, #Data do
-    local FieldName, FieldType = next(CommandRequirements[i - 2], nil)
-    Arguments[FieldName] = Data[i]
-  end
-  
-  print(Arguments)
-  Shared.RunCommand(Command, {game.Players:FindFirstChild(Data[2])}, Arguments)
-end)
+    local FieldName, FieldType = next(CommandRequirements[i - 2], nil);
+    Arguments[FieldName] = Data[i];
+  end;
 
-if Panel:GetAttribute("AlwaysOnTop") then Shared.SetHighestDisplayOrder() end
+  print(Arguments);
+  Shared.RunCommand(Command, {game.Players:FindFirstChild(Data[2])}, Arguments);
+end);
+
+if (Panel:GetAttribute("AlwaysOnTop")) then
+  Shared.SetHighestDisplayOrder();
+end;
