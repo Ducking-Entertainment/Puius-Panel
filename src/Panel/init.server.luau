@@ -96,7 +96,7 @@ end;
 script.PanelUI:SetAttribute("AlwaysOnTop", Settings.AlwaysOnTop);
 
 Event.OnServerInvoke = function(Player, Data)
-  if not (Permissions.Administrators[Player.UserId] and not Permissions.Moderators[Player.UserId]) then
+  if not (Permissions.Administrators[Player.UserId] or Permissions.Moderators[Player.UserId]) then
     return "User is not authorized to invoke the remote function.";
   end;
 
